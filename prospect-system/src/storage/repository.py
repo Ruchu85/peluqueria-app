@@ -7,8 +7,12 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from src.models.lead import LeadCreate, LeadRead, EmailDraftCreate, EmailDraftRead
-from src.storage.db_models import AuditLog, EmailDraft, Lead
+from src.models.lead import (
+    LeadCreate, LeadRead,
+    EmailDraftCreate, EmailDraftRead,
+    WhatsAppDraftCreate, WhatsAppDraftRead,
+)
+from src.storage.db_models import AuditLog, EmailDraft, Lead, WhatsAppMessage
 
 
 class LeadRepository:
@@ -47,6 +51,7 @@ class LeadRepository:
         city: Optional[str] = None,
         province: Optional[str] = None,
         has_email: Optional[bool] = None,
+        has_phone: Optional[bool] = None,
         do_not_contact: bool = False,
         limit: int = 100,
         offset: int = 0,
@@ -65,6 +70,10 @@ class LeadRepository:
             q = q.filter(Lead.email.isnot(None))
         elif has_email is False:
             q = q.filter(Lead.email.is_(None))
+        if has_phone is True:
+            q = q.filter(Lead.phone.isnot(None))
+        elif has_phone is False:
+            q = q.filter(Lead.phone.is_(None))
 
         q = q.order_by(Lead.score.desc()).offset(offset).limit(limit)
         return [LeadRead.model_validate(l) for l in q.all()]
@@ -148,3 +157,59 @@ class EmailDraftRepository:
             if hasattr(draft, k):
                 setattr(draft, k, v)
         self._session.commit()
+
+
+class WhatsAppMessageRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def create(self, data: WhatsAppDraftCreate) -> WhatsAppDraftRead:
+        msg = WhatsAppMessage(id=str(uuid.uuid4()), **data.model_dump())
+        self._session.add(msg)
+        self._session.commit()
+        self._session.refresh(msg)
+        return WhatsAppDraftRead.model_validate(msg)
+
+    def get_by_lead(self, lead_id: str) -> list[WhatsAppDraftRead]:
+        msgs = (
+            self._session.query(WhatsAppMessage)
+            .filter(WhatsAppMessage.lead_id == lead_id)
+            .order_by(WhatsAppMessage.created_at.desc())
+            .all()
+        )
+        return [WhatsAppDraftRead.model_validate(m) for m in msgs]
+
+    def list_by_status(self, status: str, limit: int = 500) -> list[WhatsAppDraftRead]:
+        msgs = (
+            self._session.query(WhatsAppMessage)
+            .filter(WhatsAppMessage.whatsapp_status == status)
+            .limit(limit)
+            .all()
+        )
+        return [WhatsAppDraftRead.model_validate(m) for m in msgs]
+
+    def list_all(self, limit: int = 1000) -> list[WhatsAppDraftRead]:
+        msgs = (
+            self._session.query(WhatsAppMessage)
+            .order_by(WhatsAppMessage.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [WhatsAppDraftRead.model_validate(m) for m in msgs]
+
+    def update_status(self, msg_id: str, status: str, **extra) -> None:
+        msg = self._session.get(WhatsAppMessage, msg_id)
+        if not msg:
+            return
+        msg.whatsapp_status = status
+        for k, v in extra.items():
+            if hasattr(msg, k):
+                setattr(msg, k, v)
+        self._session.commit()
+
+    def count_by_status(self, status: str) -> int:
+        return (
+            self._session.query(WhatsAppMessage)
+            .filter(WhatsAppMessage.whatsapp_status == status)
+            .count()
+        )

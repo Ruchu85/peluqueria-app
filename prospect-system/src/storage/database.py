@@ -37,7 +37,33 @@ def init_db(database_url: str) -> None:
 
     Base.metadata.create_all(_engine)
 
+    if "sqlite" in database_url:
+        _run_sqlite_migrations(_engine)
+
     _SessionLocal = sessionmaker(bind=_engine, autocommit=False, autoflush=False)
+
+
+def _run_sqlite_migrations(engine) -> None:
+    """Add columns introduced after the initial schema without dropping data."""
+    new_lead_columns = [
+        ("whatsapp_sent_at", "DATETIME"),
+        ("whatsapp_status", "TEXT"),
+    ]
+    with engine.connect() as conn:
+        existing = {
+            row[1]
+            for row in conn.execute(
+                __import__("sqlalchemy").text("PRAGMA table_info(leads)")
+            )
+        }
+        for col_name, col_type in new_lead_columns:
+            if col_name not in existing:
+                conn.execute(
+                    __import__("sqlalchemy").text(
+                        f"ALTER TABLE leads ADD COLUMN {col_name} {col_type}"
+                    )
+                )
+                conn.commit()
 
 
 @contextmanager

@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     sender_email: str = Field(default="")
     sender_reply_to: str = Field(default="")
 
+    # WhatsApp outreach
+    landing_url: str = Field(default="https://landing-gold-kappa-38.vercel.app")
+
     # Behavior
     # IMPORTANT: dry_run=True is the hardcoded default.
     # Emails are NEVER sent unless DRY_RUN=false is set explicitly in .env.

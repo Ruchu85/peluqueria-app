@@ -99,3 +99,19 @@ class EmailDraftRead(EmailDraftCreate):
     error_message: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class WhatsAppDraftCreate(BaseModel):
+    lead_id: str
+    phone: str
+    message_text: str
+    wa_link: str
+
+
+class WhatsAppDraftRead(WhatsAppDraftCreate):
+    id: str
+    whatsapp_status: str
+    created_at: datetime
+    sent_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}

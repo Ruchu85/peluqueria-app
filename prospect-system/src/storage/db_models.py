@@ -64,6 +64,19 @@ class EmailDraft(Base):
     error_message: Mapped[str | None] = mapped_column(String)
 
 
+class WhatsAppMessage(Base):
+    __tablename__ = "whatsapp_messages"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    lead_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    phone: Mapped[str] = mapped_column(String, nullable=False)
+    message_text: Mapped[str] = mapped_column(Text)
+    wa_link: Mapped[str] = mapped_column(Text)
+    whatsapp_status: Mapped[str] = mapped_column(String, default="draft", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 

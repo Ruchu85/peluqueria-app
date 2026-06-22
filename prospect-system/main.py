@@ -20,14 +20,17 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.config.settings import get_settings
 from src.dedup.deduplicator import deduplicate_batch, is_duplicate
 from src.enrichment.email_finder import extract_domain, find_email
+from src.enrichment.phone_finder import find_phone
 from src.enrichment.web_analyzer import analyze_website
 from src.export.csv_exporter import export_to_csv
 from src.models.lead import LeadStatus
 from src.outreach.generator import generate_draft
 from src.outreach.sender import EmailSender
+from src.outreach.whatsapp_generator import generate_whatsapp_draft
+from src.outreach.whatsapp_exporter import export_whatsapp_html, export_whatsapp_csv
 from src.scoring.scorer import score_lead
 from src.storage.database import get_session, init_db
-from src.storage.repository import EmailDraftRepository, LeadRepository
+from src.storage.repository import EmailDraftRepository, LeadRepository, WhatsAppMessageRepository
 from src.utils.geo import resolve_location
 from src.utils.logger import setup_logger
 from src.utils.rate_limiter import RateLimiter
@@ -38,7 +41,9 @@ app = typer.Typer(
     add_completion=False,
 )
 emails_app = typer.Typer(help="Gestión de emails de outreach.")
+whatsapp_app = typer.Typer(help="Gestión de mensajes WhatsApp de outreach.")
 app.add_typer(emails_app, name="emails")
+app.add_typer(whatsapp_app, name="whatsapp")
 
 console = Console()
 
@@ -158,11 +163,20 @@ def enrich(
                 if email:
                     updates["email"] = email
 
+            if not lead.phone and lead.website:
+                phone = find_phone(lead.website)
+                if phone:
+                    updates["phone"] = phone
+
             if updates:
                 updates["status"] = LeadStatus.enriched.value
                 repo.update(lead.id, **updates)
                 updated += 1
-                console.print(f"  ✓ {lead.name[:40]:<40} | {updates.get('booking_platform', '')} | email: {updates.get('email', '–')}")
+                console.print(
+                    f"  ✓ {lead.name[:38]:<38} | "
+                    f"email: {updates.get('email', '–'):<30} | "
+                    f"tel: {updates.get('phone', lead.phone or '–')}"
+                )
             else:
                 repo.update(lead.id, status=LeadStatus.enriched.value)
 
@@ -499,6 +513,203 @@ def pipeline(
         f"Revisa los borradores con: [cyan]python main.py emails review[/cyan]\n"
         f"Exporta a CSV con: [cyan]python main.py export[/cyan]"
     )
+
+
+# ──────────────────────────────────────────────────────────
+# whatsapp generate
+# ──────────────────────────────────────────────────────────
+
+@whatsapp_app.command("generate")
+def whatsapp_generate(
+    min_score: int = typer.Option(40, help="Score mínimo para generar mensaje"),
+    limit: int = typer.Option(500, help="Máximo de mensajes a generar"),
+    province: Optional[str] = typer.Option(None, help="Filtrar por provincia"),
+    city: Optional[str] = typer.Option(None, help="Filtrar por ciudad"),
+):
+    """
+    Genera mensajes de WhatsApp para todos los leads con teléfono.
+    No importa si ya se les envió un email — el teléfono es suficiente.
+    """
+    _bootstrap()
+
+    with get_session() as session:
+        repo = LeadRepository(session)
+        wa_repo = WhatsAppMessageRepository(session)
+        leads = repo.list(
+            has_phone=True,
+            min_score=min_score,
+            limit=limit,
+            province=province,
+            city=city,
+        )
+
+    if not leads:
+        console.print(f"[yellow]No hay leads con teléfono y score ≥ {min_score}.[/yellow]")
+        return
+
+    console.print(f"\n[bold cyan]Generando mensajes WhatsApp para {len(leads)} leads...[/bold cyan]")
+    generated = skipped = 0
+
+    with get_session() as session:
+        repo = LeadRepository(session)
+        wa_repo = WhatsAppMessageRepository(session)
+
+        for lead in leads:
+            if lead.do_not_contact:
+                skipped += 1
+                continue
+            existing = wa_repo.get_by_lead(lead.id)
+            if existing:
+                skipped += 1
+                continue
+
+            draft = generate_whatsapp_draft(lead)
+            if draft:
+                wa_repo.create(draft)
+                generated += 1
+
+    console.print(f"[bold green]✓ {generated} mensajes generados ({skipped} ya existían o sin tel).[/bold green]")
+    console.print("[dim]Exporta los enlaces con: .\\run.bat whatsapp export[/dim]")
+
+
+# ──────────────────────────────────────────────────────────
+# whatsapp review
+# ──────────────────────────────────────────────────────────
+
+@whatsapp_app.command("review")
+def whatsapp_review(
+    limit: int = typer.Option(20, help="Mensajes a revisar"),
+):
+    """
+    Muestra mensajes de WhatsApp para revisión manual y aprobación.
+    """
+    _bootstrap()
+
+    with get_session() as session:
+        wa_repo = WhatsAppMessageRepository(session)
+        lead_repo = LeadRepository(session)
+        drafts = wa_repo.list_by_status("draft", limit=limit)
+
+    if not drafts:
+        console.print("[yellow]No hay mensajes pendientes de revisión.[/yellow]")
+        return
+
+    console.print(f"\n[bold]Revisando {len(drafts)} mensaje(s) WhatsApp[/bold]\n")
+
+    with get_session() as session:
+        wa_repo = WhatsAppMessageRepository(session)
+        lead_repo = LeadRepository(session)
+
+        approved = skipped = 0
+        for i, draft in enumerate(drafts, 1):
+            lead = lead_repo.get_by_id(draft.lead_id)
+            if not lead:
+                continue
+
+            console.rule(f"[{i}/{len(drafts)}] {lead.name} — Score: {lead.score}")
+            console.print(f"[cyan]Teléfono:[/cyan] {draft.phone}")
+            console.print(f"[cyan]Ciudad:[/cyan] {lead.city} ({lead.province})")
+            console.print(f"\n{draft.message_text}\n")
+            console.print(f"[dim]Enlace: {draft.wa_link[:80]}...[/dim]\n")
+
+            action = typer.prompt(
+                "¿Qué hacer? [a]probar / [s]altar / [d]escartar / [q]salir",
+                default="a",
+            ).strip().lower()
+
+            if action == "a":
+                wa_repo.update_status(draft.id, "approved")
+                approved += 1
+            elif action == "d":
+                wa_repo.update_status(draft.id, "discarded")
+            elif action == "q":
+                break
+
+    console.print(f"\n[bold green]✓ {approved} aprobados, {skipped} saltados.[/bold green]")
+    console.print("[dim]Exporta con: .\\run.bat whatsapp export[/dim]")
+
+
+# ──────────────────────────────────────────────────────────
+# whatsapp export
+# ──────────────────────────────────────────────────────────
+
+@whatsapp_app.command("export")
+def whatsapp_export(
+    output: str = typer.Option("data/whatsapp_links.html", help="Ruta del HTML de salida"),
+    csv_output: str = typer.Option("data/whatsapp_links.csv", help="Ruta del CSV de salida"),
+    all_drafts: bool = typer.Option(False, "--all", help="Incluir todos los mensajes, no solo aprobados"),
+):
+    """
+    Exporta los mensajes WhatsApp aprobados como una página HTML con botones clicables.
+
+    Abre el HTML en el navegador y haz clic en cada botón para abrir WhatsApp
+    con el mensaje ya escrito. Solo tienes que pulsar Enviar.
+    """
+    _bootstrap()
+
+    with get_session() as session:
+        wa_repo = WhatsAppMessageRepository(session)
+        lead_repo = LeadRepository(session)
+
+        status_filter = None if all_drafts else "approved"
+        if status_filter:
+            drafts = wa_repo.list_by_status(status_filter)
+        else:
+            drafts = wa_repo.list_all()
+
+        if not drafts:
+            label = "mensajes" if all_drafts else "mensajes aprobados"
+            console.print(f"[yellow]No hay {label}. Ejecuta primero 'whatsapp generate' y 'whatsapp review'.[/yellow]")
+            return
+
+        items = []
+        for draft in drafts:
+            lead = lead_repo.get_by_id(draft.lead_id)
+            if lead:
+                items.append({"draft": draft, "lead": lead})
+
+    total_html = export_whatsapp_html(items, output)
+    total_csv = export_whatsapp_csv(items, csv_output)
+
+    console.print(f"\n[bold green]✓ {total_html} mensajes exportados.[/bold green]")
+    console.print(f"  HTML → [cyan]{output}[/cyan]")
+    console.print(f"  CSV  → [cyan]{csv_output}[/cyan]")
+    console.print("\n[bold]Instrucciones:[/bold]")
+    console.print("  1. Abre el archivo HTML en tu navegador")
+    console.print("  2. Haz clic en [green]'💬 Abrir en WhatsApp'[/green] en cada fila")
+    console.print("  3. WhatsApp (web o móvil) se abre con el mensaje ya escrito")
+    console.print("  4. Pulsa Enviar — ¡listo!")
+
+
+# ──────────────────────────────────────────────────────────
+# whatsapp stats
+# ──────────────────────────────────────────────────────────
+
+@whatsapp_app.command("stats")
+def whatsapp_stats():
+    """Muestra estadísticas de la campaña WhatsApp."""
+    _bootstrap()
+
+    with get_session() as session:
+        repo = LeadRepository(session)
+        wa_repo = WhatsAppMessageRepository(session)
+
+        total_with_phone = len(repo.list(has_phone=True, limit=10_000))
+        total_without_phone = len(repo.list(has_phone=False, limit=10_000))
+        drafts = wa_repo.count_by_status("draft")
+        approved = wa_repo.count_by_status("approved")
+        sent = wa_repo.count_by_status("sent")
+
+        table = Table(title="Estado WhatsApp Outreach", show_header=True, header_style="bold green")
+        table.add_column("Métrica", style="cyan")
+        table.add_column("Total", justify="right")
+        table.add_row("Leads con teléfono", str(total_with_phone))
+        table.add_row("Leads sin teléfono", str(total_without_phone))
+        table.add_row("Mensajes borrador", str(drafts))
+        table.add_row("Mensajes aprobados", str(approved))
+        table.add_row("Mensajes enviados", str(sent))
+
+        console.print(table)
 
 
 if __name__ == "__main__":
