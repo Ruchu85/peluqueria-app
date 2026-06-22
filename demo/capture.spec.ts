@@ -31,7 +31,7 @@ async function injectSession(context: import("@playwright/test").BrowserContext)
     {
       cookies: {
         getAll: () => [],
-        setAll: (cookies) => {
+        setAll: (cookies: { name: string; value: string }[]) => {
           for (const c of cookies) captured.push({ name: c.name, value: c.value });
         },
       },
