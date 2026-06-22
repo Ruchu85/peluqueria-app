@@ -563,7 +563,7 @@ def whatsapp_generate(
             if lead.do_not_contact:
                 skipped += 1
                 continue
-            existing = wa_repo.get_by_lead(lead.id)
+            existing = [m for m in wa_repo.get_by_lead(lead.id) if m.whatsapp_status != "discarded"]
             if existing:
                 skipped += 1
                 continue
