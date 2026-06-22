@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.config.settings import get_settings
 from src.dedup.deduplicator import deduplicate_batch, is_duplicate
 from src.enrichment.email_finder import extract_domain, find_email
-from src.enrichment.phone_finder import find_phone
+from src.enrichment.phone_finder import find_phone, is_spanish_mobile
 from src.enrichment.web_analyzer import analyze_website
 from src.export.csv_exporter import export_to_csv
 from src.models.lead import LeadStatus
@@ -525,16 +525,16 @@ def whatsapp_generate(
     limit: int = typer.Option(500, help="Máximo de mensajes a generar"),
     province: Optional[str] = typer.Option(None, help="Filtrar por provincia"),
     city: Optional[str] = typer.Option(None, help="Filtrar por ciudad"),
+    include_landlines: bool = typer.Option(False, "--include-landlines", help="Incluir teléfonos fijos (sin WhatsApp)"),
 ):
     """
-    Genera mensajes de WhatsApp para todos los leads con teléfono.
-    No importa si ya se les envió un email — el teléfono es suficiente.
+    Genera mensajes de WhatsApp para leads con teléfono MÓVIL (6xx/7xx).
+    Los fijos (8xx/9xx) se descartan porque no tienen WhatsApp.
     """
     _bootstrap()
 
     with get_session() as session:
         repo = LeadRepository(session)
-        wa_repo = WhatsAppMessageRepository(session)
         leads = repo.list(
             has_phone=True,
             min_score=min_score,
@@ -547,14 +547,19 @@ def whatsapp_generate(
         console.print(f"[yellow]No hay leads con teléfono y score ≥ {min_score}.[/yellow]")
         return
 
-    console.print(f"\n[bold cyan]Generando mensajes WhatsApp para {len(leads)} leads...[/bold cyan]")
+    mobile = [l for l in leads if include_landlines or is_spanish_mobile(l.phone)]
+    skipped_landlines = len(leads) - len(mobile)
+
+    console.print(f"\n[bold cyan]Generando mensajes WhatsApp para {len(mobile)} leads con móvil...[/bold cyan]")
+    if skipped_landlines:
+        console.print(f"[dim]  (Ignorados {skipped_landlines} fijos — sin WhatsApp)[/dim]")
+
     generated = skipped = 0
 
     with get_session() as session:
-        repo = LeadRepository(session)
         wa_repo = WhatsAppMessageRepository(session)
 
-        for lead in leads:
+        for lead in mobile:
             if lead.do_not_contact:
                 skipped += 1
                 continue
@@ -568,8 +573,8 @@ def whatsapp_generate(
                 wa_repo.create(draft)
                 generated += 1
 
-    console.print(f"[bold green]✓ {generated} mensajes generados ({skipped} ya existían o sin tel).[/bold green]")
-    console.print("[dim]Exporta los enlaces con: .\\run.bat whatsapp export[/dim]")
+    console.print(f"[bold green]✓ {generated} mensajes generados ({skipped} ya existían).[/bold green]")
+    console.print("[dim]Exporta los enlaces con: .\\run.bat whatsapp export --all[/dim]")
 
 
 # ──────────────────────────────────────────────────────────
@@ -651,11 +656,14 @@ def whatsapp_export(
         wa_repo = WhatsAppMessageRepository(session)
         lead_repo = LeadRepository(session)
 
-        status_filter = None if all_drafts else "approved"
-        if status_filter:
-            drafts = wa_repo.list_by_status(status_filter)
+        if all_drafts:
+            # Include draft + approved + sent, but NEVER discarded
+            drafts = [
+                d for d in wa_repo.list_all()
+                if d.whatsapp_status != "discarded"
+            ]
         else:
-            drafts = wa_repo.list_all()
+            drafts = wa_repo.list_by_status("approved")
 
         if not drafts:
             label = "mensajes" if all_drafts else "mensajes aprobados"
@@ -684,6 +692,33 @@ def whatsapp_export(
 # ──────────────────────────────────────────────────────────
 # whatsapp stats
 # ──────────────────────────────────────────────────────────
+
+@whatsapp_app.command("discard-landlines")
+def whatsapp_discard_landlines():
+    """
+    Descarta todos los mensajes WhatsApp generados para teléfonos fijos (8xx/9xx).
+    Úsalo para limpiar la BD después de un 'generate' sin filtro móvil.
+    """
+    _bootstrap()
+
+    with get_session() as session:
+        wa_repo = WhatsAppMessageRepository(session)
+        all_drafts = wa_repo.list_all(limit=10_000)
+
+    discarded = kept = 0
+    with get_session() as session:
+        wa_repo = WhatsAppMessageRepository(session)
+        for draft in all_drafts:
+            if not is_spanish_mobile(draft.phone):
+                wa_repo.update_status(draft.id, "discarded")
+                discarded += 1
+            else:
+                kept += 1
+
+    console.print(f"[bold green]✓ {discarded} mensajes de fijos descartados.[/bold green]")
+    console.print(f"[bold cyan]  {kept} mensajes de móviles conservados.[/bold cyan]")
+    console.print("[dim]Regenera el HTML con: .\\run.bat whatsapp export --all[/dim]")
+
 
 @whatsapp_app.command("stats")
 def whatsapp_stats():

@@ -96,6 +96,16 @@ def _normalize_phone(raw: str) -> str | None:
     return None
 
 
+def is_spanish_mobile(phone: str | None) -> bool:
+    """Return True if the phone is a Spanish mobile number (starts with 6xx or 7xx)."""
+    if not phone:
+        return False
+    # Normalize to raw digits
+    digits = re.sub(r"[\s\-\.\(\)\+]", "", phone)
+    digits = re.sub(r"^34", "", digits)  # strip country code
+    return len(digits) == 9 and digits[0] in "67"
+
+
 def _get_base_url(url: str) -> str:
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
