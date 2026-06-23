@@ -36,6 +36,15 @@
   .trust{margin-top:22px;font-size:14px;color:var(--muted)}
   .trust b{color:var(--ink)}
 
+  /* Demo video */
+  .demo-video-wrap{margin-top:48px;text-align:center;}
+  .demo-label{display:inline-flex;align-items:center;gap:7px;background:#f1f5f9;color:var(--muted);font-size:13px;font-weight:600;padding:6px 14px;border-radius:999px;margin-bottom:14px;}
+  .demo-label .dot-pulse{width:7px;height:7px;border-radius:50%;background:#ef4444;animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .demo-player{max-width:980px;margin:0 auto;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 60px -20px rgba(15,23,42,.28);background:#0f172a;}
+  .demo-player video{display:block;width:100%;aspect-ratio:16/9;}
+  .demo-caption{margin-top:12px;font-size:13px;color:var(--muted);}
+
   /* Hero shot */
   .hero-shot{margin-top:50px}
   .hero-shot img{width:100%;max-width:980px;border-radius:16px;border:1px solid var(--line);box-shadow:0 30px 60px -20px rgba(15,23,42,.25)}
@@ -125,6 +134,18 @@
       <a class="btn btn-ghost" href="#galeria">Ver cómo funciona</a>
     </div>
     <div class="trust">Prueba sin compromiso · <b>Si no te convence, te devolvemos el dinero</b></div>
+
+    <!-- VIDEO DEMO -->
+    <div class="demo-video-wrap">
+      <span class="demo-label"><span class="dot-pulse"></span> Demo en vivo — ve cómo funciona la app</span>
+      <div class="demo-player">
+        <video autoplay muted loop playsinline preload="auto">
+          <source src="video/demo.webm" type="video/webm">
+        </video>
+      </div>
+      <p class="demo-caption">✂ Datos ficticios de "Peluquería Aurora" — así se vería tu salón</p>
+    </div>
+
     <div class="hero-shot">
       <img src="screenshots/02-calendario.png" alt="Vista de calendario semanal de GestiCitas">
     </div>

@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>GestiCitas — Demo</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#7c3aed;--brand-light:#f5f3ff;--ink:#0f172a;
+  --muted:#64748b;--line:#e2e8f0;--green:#10b981;
+  --bg:#fff;--soft:#f8fafc;--navy:#0f172a;
+  --pink:#fce7f3;--pink-d:#9d174d;
+  --blue:#dbeafe;--blue-d:#1e40af;
+  --teal:#d1fae5;--teal-d:#065f46;
+}
+html,body{width:1280px;height:720px;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  -webkit-font-smoothing:antialiased;background:#fff;font-size:14px;}
+
+/* ── Progress bar ── */
+#pb{position:fixed;top:0;left:0;height:3px;background:var(--brand);width:0%;z-index:1000;transition:width .3s linear;}
+
+/* ── Caption ── */
+#cap{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,.88);
+  color:#fff;text-align:center;padding:9px 24px;font-size:16px;font-weight:600;
+  z-index:1000;backdrop-filter:blur(4px);letter-spacing:-.01em;min-height:40px;}
+#cap small{opacity:.65;font-weight:400;font-size:13px;margin-left:8px;}
+
+/* ── App shell ── */
+.app{display:flex;width:1280px;height:680px;}
+
+/* ── Sidebar ── */
+.sb{width:220px;height:100%;background:#fff;border-right:1px solid var(--line);
+  display:flex;flex-direction:column;flex-shrink:0;}
+.sb-logo{display:flex;align-items:center;gap:9px;padding:18px 16px 16px;
+  font-weight:800;font-size:16px;color:var(--ink);border-bottom:1px solid var(--line);}
+.sb-logo .sc{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#9333ea);
+  color:#fff;display:grid;place-items:center;font-size:15px;flex-shrink:0;}
+.sb-nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px;}
+.ni{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;
+  font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .2s;}
+.ni.on{background:var(--brand-light);color:var(--brand);font-weight:600;}
+.ni .ico{font-size:16px;width:18px;text-align:center;}
+.sb-user{padding:12px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:9px;}
+.sb-user .av{width:32px;height:32px;border-radius:50%;background:var(--ink);color:#fff;
+  display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.sb-user .un{font-size:12px;font-weight:600;color:var(--ink);}
+.sb-user .ur{font-size:11px;color:var(--muted);}
+
+/* ── Main ── */
+.main{flex:1;height:100%;overflow:hidden;background:var(--soft);position:relative;}
+
+/* ── Scenes ── */
+.scene{position:absolute;inset:0;padding:22px 24px;opacity:0;
+  transition:opacity .45s ease;pointer-events:none;overflow:hidden;}
+.scene.on{opacity:1;pointer-events:auto;}
+
+/* ── Shared ── */
+.ph{text-align:center;margin-bottom:18px;}
+.ph h1{font-size:20px;font-weight:800;letter-spacing:-.02em;color:var(--ink);}
+.ph .dt{font-size:13px;color:var(--muted);margin-top:2px;}
+.page-title{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:16px;}
+
+/* ─────────────────────────── SCENE 1 — DASHBOARD ─────────────────────────── */
+.stats-card{background:var(--navy);border-radius:14px;padding:18px 22px;
+  display:flex;justify-content:space-around;color:#fff;margin-bottom:16px;}
+.st .n{font-size:34px;font-weight:800;line-height:1;margin-bottom:3px;}
+.st .n.g{color:#34d399;} .st .n.a{color:#fbbf24;}
+.st .l{font-size:11px;opacity:.7;}
+.ncb{display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--navy);color:#fff;border-radius:12px;padding:13px;
+  font-size:15px;font-weight:700;margin-bottom:18px;cursor:pointer;}
+.aplist{display:flex;flex-direction:column;gap:7px;}
+.apr{background:#fff;border-radius:10px;border:1px solid var(--line);
+  padding:9px 13px;display:flex;align-items:center;gap:12px;
+  opacity:0;transform:translateY(8px);transition:all .4s ease;}
+.apr.on{opacity:1;transform:translateY(0);}
+.apt{font-size:13px;font-weight:700;color:var(--brand);min-width:40px;}
+.add{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.api .ac{font-size:13px;font-weight:600;color:var(--ink);}
+.api .as{font-size:11px;color:var(--muted);}
+.apo{margin-left:auto;font-size:11px;color:var(--muted);
+  background:var(--soft);padding:3px 8px;border-radius:999px;}
+
+/* ─────────────────────────── SCENE 2 — CALENDAR ─────────────────────────── */
+.calh{display:flex;align-items:center;gap:10px;margin-bottom:12px;
+  background:var(--navy);border-radius:12px;padding:10px 14px;color:#fff;}
+.cnb{width:26px;height:26px;border-radius:6px;background:rgba(255,255,255,.15);
+  display:grid;place-items:center;font-size:13px;cursor:pointer;}
+.ctitle{font-weight:700;font-size:15px;flex:1;text-align:center;}
+.ctabs{display:flex;background:rgba(255,255,255,.15);border-radius:7px;padding:2px;gap:2px;}
+.ctab{padding:4px 11px;border-radius:5px;font-size:12px;font-weight:600;
+  cursor:pointer;color:rgba(255,255,255,.7);}
+.ctab.on{background:#fff;color:var(--navy);}
+.ncbsm{display:flex;align-items:center;gap:5px;background:#fff;color:var(--navy);
+  padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;
+  cursor:pointer;white-space:nowrap;}
+.calgrid{background:#fff;border-radius:12px;border:1px solid var(--line);overflow:hidden;}
+.calheader{display:grid;grid-template-columns:58px repeat(3,1fr);
+  border-bottom:1px solid var(--line);background:var(--soft);}
+.chcol{padding:9px 8px;text-align:center;border-left:1px solid var(--line);}
+.chcol:first-child{border-left:none;}
+.chcol .dow{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;}
+.chcol .sn{width:7px;height:7px;border-radius:50%;margin:4px auto 0;}
+.calbody{display:grid;grid-template-columns:58px 1fr 1fr 1fr;height:496px;
+  overflow-y:auto;position:relative;}
+.caltimecol{background:var(--soft);border-right:1px solid var(--line);}
+.cts{height:46px;display:flex;align-items:flex-start;justify-content:center;
+  padding-top:3px;font-size:10px;color:var(--muted);font-weight:500;
+  border-bottom:1px solid var(--line);}
+.caldaycol{border-left:1px solid var(--line);position:relative;}
+.cdc{height:46px;border-bottom:1px solid var(--line);}
+.capt{position:absolute;left:3px;right:3px;border-radius:7px;
+  padding:4px 7px;font-size:11px;font-weight:600;cursor:pointer;overflow:hidden;
+  opacity:0;transform:scaleY(.8);transform-origin:top;
+  transition:all .4s cubic-bezier(.34,1.56,.64,1);}
+.capt.on{opacity:1;transform:scaleY(1);}
+.capt .cn{font-size:11px;font-weight:700;}
+.capt .ct{font-size:9px;opacity:.8;}
+.c1{background:#fce7f3;color:#9d174d;border-left:3px solid #ec4899;}
+.c2{background:#dbeafe;color:#1e40af;border-left:3px solid #3b82f6;}
+.c3{background:#d1fae5;color:#065f46;border-left:3px solid #10b981;}
+
+/* ─────────────────────────── SCENE 3 — NEW APPT ─────────────────────────── */
+.modal-ov{position:absolute;inset:0;background:rgba(15,23,42,.5);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .3s;backdrop-filter:blur(2px);}
+.modal-ov.on{opacity:1;}
+.mbox{background:#fff;border-radius:18px;padding:26px;width:400px;
+  box-shadow:0 25px 60px -15px rgba(15,23,42,.35);
+  transform:translateY(16px);transition:transform .4s cubic-bezier(.34,1.56,.64,1);}
+.modal-ov.on .mbox{transform:translateY(0);}
+.mtitle{font-size:18px;font-weight:800;color:var(--ink);margin-bottom:18px;}
+.fg{margin-bottom:13px;position:relative;}
+.fl{display:block;font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+.fi{width:100%;padding:9px 11px;border:1.5px solid var(--line);
+  border-radius:9px;font-size:14px;color:var(--ink);background:var(--soft);
+  outline:none;transition:border-color .2s;font-family:inherit;}
+.fi.foc{border-color:var(--brand);background:#fff;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.fsel{width:100%;padding:9px 11px;border:1.5px solid var(--line);
+  border-radius:9px;font-size:14px;color:var(--ink);background:var(--soft);
+  font-family:inherit;}
+.ac{position:absolute;left:0;right:0;top:100%;background:#fff;
+  border:1.5px solid var(--brand);border-radius:9px;
+  box-shadow:0 8px 24px -4px rgba(15,23,42,.15);z-index:10;overflow:hidden;
+  opacity:0;transform:translateY(-4px);transition:all .2s;margin-top:2px;}
+.ac.on{opacity:1;transform:translateY(0);}
+.aci{padding:9px 13px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;
+  background:var(--brand-light);}
+.aci .acsm{width:26px;height:26px;border-radius:50%;background:var(--brand);
+  color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;}
+.sbtn{width:100%;padding:12px;background:var(--navy);color:#fff;border:none;
+  border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;
+  margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:all .25s;font-family:inherit;}
+.sbtn.ld{background:var(--brand);}
+.sbtn.ok{background:var(--green);}
+
+/* ─────────────────────────── SCENE 4 — CLIENTS ─────────────────────────── */
+.sbar{display:flex;gap:9px;margin-bottom:14px;}
+.si{flex:1;padding:9px 13px;border:1.5px solid var(--line);
+  border-radius:9px;font-size:13px;color:var(--ink);background:#fff;font-family:inherit;}
+.si.foc{border-color:var(--brand);}
+.clist{display:flex;flex-direction:column;gap:0;}
+.crow{background:#fff;padding:11px 14px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--soft);opacity:0;transform:translateX(-6px);
+  transition:all .3s ease;cursor:pointer;}
+.crow.on{opacity:1;transform:translateX(0);}
+.crow.hi{background:var(--brand-light);}
+.cav{width:36px;height:36px;border-radius:50%;color:#fff;font-size:12px;
+  font-weight:700;display:grid;place-items:center;flex-shrink:0;}
+.cin .cn{font-size:13px;font-weight:600;color:var(--ink);}
+.cin .cp{font-size:11px;color:var(--muted);}
+.carr{margin-left:auto;color:var(--muted);font-size:15px;}
+.crow.hi .carr{color:var(--brand);}
+.crow.hi .cn{color:var(--brand);}
+.cdet{background:#fff;border-radius:13px;border:1px solid var(--line);padding:18px;
+  opacity:0;transform:translateX(16px);transition:all .4s ease;}
+.cdet.on{opacity:1;transform:translateX(0);}
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;}
+.ds{background:var(--soft);border-radius:9px;padding:11px;}
+.ds .dv{font-size:22px;font-weight:800;color:var(--ink);}
+.ds .dl{font-size:11px;color:var(--muted);}
+
+/* ─────────────────────────── SCENE 5 — WHATSAPP ─────────────────────────── */
+.watst{position:absolute;top:20px;right:20px;background:#fff;border-radius:13px;
+  padding:13px 16px;box-shadow:0 12px 32px -8px rgba(15,23,42,.22);
+  display:flex;align-items:flex-start;gap:11px;max-width:310px;
+  opacity:0;transform:translateX(16px);
+  transition:all .45s cubic-bezier(.34,1.56,.64,1);
+  border-left:4px solid #25d366;}
+.watst.on{opacity:1;transform:translateX(0);}
+.wai{font-size:22px;flex-shrink:0;margin-top:1px;}
+.wab .wt{font-size:13px;font-weight:700;color:var(--ink);}
+.wab .ws{font-size:11px;color:var(--muted);margin-top:1px;}
+.wab .wm{font-size:11px;color:#374151;background:#f3f4f6;border-radius:6px;
+  padding:5px 8px;margin-top:5px;line-height:1.4;}
+
+/* ─────────────────────────── SCENE 6 — CASH ─────────────────────────── */
+.cashcard{background:var(--navy);border-radius:14px;padding:20px 22px;color:#fff;
+  margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.cashcard .cl .cl-l{font-size:11px;opacity:.7;margin-bottom:3px;}
+.cashcard .cl .cl-a{font-size:40px;font-weight:800;line-height:1;}
+.cashcard .cr .cr-n{font-size:26px;font-weight:800;}
+.cashcard .cr .cr-l{font-size:11px;opacity:.7;}
+.sbr{display:flex;flex-direction:column;gap:7px;}
+.sbrow{background:#fff;border-radius:9px;padding:11px 14px;
+  display:flex;align-items:center;gap:11px;}
+.sbrow .sbl{font-size:13px;font-weight:600;color:var(--ink);min-width:130px;}
+.sbrow .sbw{flex:1;height:7px;background:var(--line);border-radius:999px;overflow:hidden;}
+.sbrow .sbb{height:100%;border-radius:999px;width:0%;transition:width 1s ease;}
+.sbrow .sba{font-size:13px;font-weight:700;color:var(--ink);min-width:46px;text-align:right;}
+
+/* ─────────────────────────── SCENE 7 — REPORTS ─────────────────────────── */
+.repgrid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;}
+.rc{background:#fff;border-radius:13px;border:1px solid var(--line);padding:16px;}
+.rc .rct{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:12px;}
+.bch{display:flex;flex-direction:column;gap:11px;}
+.bcr{display:flex;align-items:center;gap:9px;}
+.bcr .bcl{font-size:12px;color:var(--ink);min-width:88px;font-weight:500;}
+.bcr .bcw{flex:1;height:9px;background:var(--line);border-radius:999px;overflow:hidden;}
+.bcr .bcb{height:100%;border-radius:999px;width:0%;transition:width 1.2s ease;}
+.bcr .bcp{font-size:11px;font-weight:700;color:var(--ink);min-width:32px;text-align:right;}
+.metr{display:flex;flex-direction:column;gap:12px;}
+.mc{background:#fff;border-radius:13px;border:1px solid var(--line);padding:14px 16px;}
+.mc .mv{font-size:26px;font-weight:800;color:var(--ink);}
+.mc .mv span{font-size:14px;color:var(--muted);font-weight:500;}
+.mc .ml{font-size:11px;color:var(--muted);margin-top:2px;}
+.mc .mtr{font-size:11px;color:var(--green);font-weight:600;margin-top:3px;}
+
+/* ─────────────────────────── SCENE 8 — END ─────────────────────────── */
+.endsc{background:linear-gradient(135deg,#7c3aed 0%,#9333ea 100%);
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;color:#fff;gap:18px;}
+.el{font-size:48px;font-weight:900;letter-spacing:-.03em;
+  opacity:0;transform:scale(.85);transition:all .6s cubic-bezier(.34,1.56,.64,1);}
+.el.on{opacity:1;transform:scale(1);}
+.et{font-size:19px;opacity:0;font-weight:500;transition:all .6s .3s ease;}
+.et.on{opacity:1;}
+.eu{font-size:15px;opacity:0;font-weight:600;background:rgba(255,255,255,.2);
+  padding:7px 18px;border-radius:999px;transition:all .6s .6s ease;}
+.eu.on{opacity:1;}
+.etrial{font-size:14px;opacity:0;background:#fff;color:var(--brand);
+  font-weight:700;padding:8px 22px;border-radius:999px;
+  transition:all .6s .9s ease;}
+.etrial.on{opacity:1;}
+</style>
+</head>
+<body>
+<div id="pb"></div>
+<div id="cap">Iniciando GestiCitas…</div>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sb">
+    <div class="sb-logo">
+      <div class="sc">✂</div>
+      <span>Peluquería Aurora</span>
+    </div>
+    <nav class="sb-nav" id="snav">
+      <div class="ni on" data-n="inicio"><span class="ico">🏠</span> Inicio</div>
+      <div class="ni" data-n="calendario"><span class="ico">📅</span> Calendario</div>
+      <div class="ni" data-n="citas"><span class="ico">📋</span> Citas</div>
+      <div class="ni" data-n="clientes"><span class="ico">👥</span> Clientes</div>
+      <div class="ni" data-n="informes"><span class="ico">📊</span> Informes</div>
+      <div class="ni" data-n="tickets"><span class="ico">💶</span> Tickets</div>
+      <div class="ni" data-n="horarios"><span class="ico">🕐</span> Horarios</div>
+      <div class="ni" data-n="ajustes"><span class="ico">⚙</span> Ajustes</div>
+    </nav>
+    <div class="sb-user">
+      <div class="av">L</div>
+      <div><div class="un">Laura García</div><div class="ur">Admin</div></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- S1: Dashboard -->
+    <div class="scene on" id="s1">
+      <div class="ph"><h1>PELUQUERÍA AURORA</h1><div class="dt">Lunes, 23 de Junio de 2026</div></div>
+      <div class="stats-card">
+        <div class="st"><div class="n" id="nc">0</div><div class="l">Citas hoy</div></div>
+        <div class="st"><div class="n g" id="np">0</div><div class="l">Pendientes</div></div>
+        <div class="st"><div class="n a" id="nv">0€</div><div class="l">Previsto</div></div>
+      </div>
+      <div class="ncb">＋ Nueva cita</div>
+      <div class="aplist">
+        <div class="apr" id="a1">
+          <span class="apt">09:00</span>
+          <span class="add" style="background:#ec4899"></span>
+          <div class="api"><div class="ac">Ana García</div><div class="as">Corte y peinado · 45 min</div></div>
+          <span class="apo">María</span>
+        </div>
+        <div class="apr" id="a2">
+          <span class="apt">09:30</span>
+          <span class="add" style="background:#3b82f6"></span>
+          <div class="api"><div class="ac">Carmen López</div><div class="as">Tinte completo · 90 min</div></div>
+          <span class="apo">Carmen</span>
+        </div>
+        <div class="apr" id="a3">
+          <span class="apt">10:30</span>
+          <span class="add" style="background:#10b981"></span>
+          <div class="api"><div class="ac">Sofía Martín</div><div class="as">Mechas · 120 min</div></div>
+          <span class="apo">Lucía</span>
+        </div>
+        <div class="apr" id="a4">
+          <span class="apt">12:00</span>
+          <span class="add" style="background:#ec4899"></span>
+          <div class="api"><div class="ac">Rosa Pérez</div><div class="as">Corte y peinado · 45 min</div></div>
+          <span class="apo">María</span>
+        </div>
+        <div class="apr" id="a5">
+          <span class="apt">16:00</span>
+          <span class="add" style="background:#3b82f6"></span>
+          <div class="api"><div class="ac">María José Ruiz</div><div class="as">Tinte completo · 90 min</div></div>
+          <span class="apo">Carmen</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- S2: Calendar -->
+    <div class="scene" id="s2">
+      <div class="calh">
+        <div class="cnb">‹</div><div class="cnb">›</div>
+        <div style="background:rgba(255,255,255,.18);color:#fff;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:600;">Hoy</div>
+        <div class="ctitle">Lunes, 23 de Junio de 2026</div>
+        <div class="ctabs">
+          <div class="ctab on">Día</div>
+          <div class="ctab">Semana</div>
+          <div class="ctab">Mes</div>
+        </div>
+        <div class="ncbsm">＋ Nueva cita</div>
+      </div>
+      <div class="calgrid">
+        <div class="calheader">
+          <div style="padding:9px;border-right:1px solid var(--line);"></div>
+          <div class="chcol"><div class="dow">María García</div><div class="sn" style="background:#ec4899;"></div></div>
+          <div class="chcol"><div class="dow">Carmen Ruiz</div><div class="sn" style="background:#3b82f6;"></div></div>
+          <div class="chcol"><div class="dow">Lucía Martín</div><div class="sn" style="background:#10b981;"></div></div>
+        </div>
+        <div class="calbody" id="cbody"></div>
+      </div>
+    </div>
+
+    <!-- S3: New appointment -->
+    <div class="scene" id="s3">
+      <div style="opacity:.25;pointer-events:none;">
+        <div class="calh">
+          <div class="cnb">‹</div><div class="cnb">›</div>
+          <div class="ctitle">Lunes, 23 de Junio de 2026</div>
+          <div class="ncbsm">＋ Nueva cita</div>
+        </div>
+      </div>
+      <div class="modal-ov" id="mov">
+        <div class="mbox">
+          <div class="mtitle">📅 Nueva cita</div>
+          <div class="fg">
+            <label class="fl">Cliente</label>
+            <input class="fi" id="fci" placeholder="Buscar cliente..." readonly>
+            <div class="ac" id="fac">
+              <div class="aci">
+                <div class="acsm">IC</div>
+                <div>
+                  <div style="font-size:13px;font-weight:600;">Isabel Cano</div>
+                  <div style="font-size:10px;color:var(--muted);">+34 671 234 891</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fg">
+            <label class="fl">Servicio</label>
+            <select class="fsel"><option>Corte y peinado — 45 min · 25€</option></select>
+          </div>
+          <div class="frow">
+            <div class="fg">
+              <label class="fl">Profesional</label>
+              <select class="fsel"><option>María García</option></select>
+            </div>
+            <div class="fg">
+              <label class="fl">Hora</label>
+              <select class="fsel" id="fstime"><option>18:00</option></select>
+            </div>
+          </div>
+          <div class="fg">
+            <label class="fl">Notas (opcional)</label>
+            <input class="fi" id="fnotes" placeholder="Observaciones..." readonly>
+          </div>
+          <button class="sbtn" id="sbtn">Crear cita</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- S4: Clients -->
+    <div class="scene" id="s4">
+      <div class="page-title">Clientes</div>
+      <div class="page-sub">Gestiona la lista de clientes del salón. Al crear una cita se guardan automáticamente.</div>
+      <div class="sbar">
+        <input class="si" id="sci" placeholder="Buscar cliente..." readonly>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;height:440px;">
+        <div style="background:#fff;border-radius:13px;border:1px solid var(--line);overflow:hidden;">
+          <div class="clist">
+            <div class="crow" id="cr1"><div class="cav" style="background:#ec4899;">AG</div><div class="cin"><div class="cn">Ana García</div><div class="cp">+34 671 234 567</div></div><div class="carr">›</div></div>
+            <div class="crow" id="cr2"><div class="cav" style="background:#3b82f6;">CL</div><div class="cin"><div class="cn">Carmen López</div><div class="cp">+34 672 345 678</div></div><div class="carr">›</div></div>
+            <div class="crow hi" id="crh"><div class="cav" style="background:#7c3aed;">IC</div><div class="cin"><div class="cn">Isabel Cano</div><div class="cp">+34 671 234 891</div></div><div class="carr">›</div></div>
+            <div class="crow" id="cr3"><div class="cav" style="background:#10b981;">SM</div><div class="cin"><div class="cn">Sofía Martín</div><div class="cp">+34 673 456 789</div></div><div class="carr">›</div></div>
+            <div class="crow" id="cr4"><div class="cav" style="background:#f59e0b;">RP</div><div class="cin"><div class="cn">Rosa Pérez</div><div class="cp">+34 674 567 890</div></div><div class="carr">›</div></div>
+            <div class="crow" id="cr5"><div class="cav" style="background:#6366f1;">BF</div><div class="cin"><div class="cn">Beatriz Flores</div><div class="cp">+34 675 678 901</div></div><div class="carr">›</div></div>
+          </div>
+        </div>
+        <div class="cdet" id="cdet">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+            <div style="width:48px;height:48px;border-radius:50%;background:#7c3aed;color:#fff;font-size:16px;font-weight:700;display:grid;place-items:center;">IC</div>
+            <div>
+              <div style="font-size:17px;font-weight:800;color:var(--ink);">Isabel Cano</div>
+              <div style="font-size:12px;color:var(--muted);">+34 671 234 891</div>
+            </div>
+          </div>
+          <div class="dg">
+            <div class="ds"><div class="dv">18</div><div class="dl">visitas desde 2023</div></div>
+            <div class="ds"><div class="dv">32€</div><div class="dl">ticket medio</div></div>
+            <div class="ds" style="grid-column:1/-1;">
+              <div style="font-size:10px;color:var(--muted);font-weight:700;margin-bottom:3px;">ÚLTIMO SERVICIO</div>
+              <div style="font-size:13px;font-weight:600;color:var(--ink);">Corte y peinado · 10 jun 2026</div>
+            </div>
+            <div class="ds" style="grid-column:1/-1;background:var(--brand-light);">
+              <div style="font-size:10px;color:var(--brand);font-weight:700;margin-bottom:3px;">PRÓXIMA CITA</div>
+              <div style="font-size:13px;font-weight:700;color:var(--brand);">Hoy, 18:00 · Corte y peinado ✨</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S5: WhatsApp -->
+    <div class="scene" id="s5">
+      <div style="opacity:.35;pointer-events:none;">
+        <div class="calh">
+          <div class="cnb">‹</div><div class="cnb">›</div>
+          <div class="ctitle">Lunes, 23 de Junio de 2026</div>
+        </div>
+        <div style="height:200px;background:#fff;border-radius:12px;border:1px solid var(--line);margin-top:4px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;">Calendario cargado…</div>
+      </div>
+      <div class="watst" id="wat">
+        <div class="wai">💬</div>
+        <div class="wab">
+          <div class="wt">Recordatorio enviado ✓</div>
+          <div class="ws">A: Isabel Cano · Hoy 18:00</div>
+          <div class="wm">"Hola Isabel, te recordamos tu cita hoy en Peluquería Aurora a las 18:00. ¡Te esperamos! ✂"</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S6: Cash -->
+    <div class="scene" id="s6">
+      <div class="page-title">💶 Tickets del día</div>
+      <div class="page-sub">Lunes, 23 de junio de 2026</div>
+      <div class="cashcard">
+        <div class="cl"><div class="cl-l">Total facturado hoy</div><div class="cl-a" id="ca">0€</div></div>
+        <div class="cr"><div class="cr-n" id="ct">0</div><div class="cr-l">tickets emitidos</div></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px;">Desglose por servicio</div>
+      <div class="sbr">
+        <div class="sbrow"><div class="sbl">Tinte completo</div><div class="sbw"><div class="sbb" id="b1" style="background:#3b82f6;"></div></div><div class="sba">195€</div></div>
+        <div class="sbrow"><div class="sbl">Mechas</div><div class="sbw"><div class="sbb" id="b2" style="background:#10b981;"></div></div><div class="sba">85€</div></div>
+        <div class="sbrow"><div class="sbl">Corte y peinado</div><div class="sbw"><div class="sbb" id="b3" style="background:#ec4899;"></div></div><div class="sba">75€</div></div>
+        <div class="sbrow"><div class="sbl">Manicura</div><div class="sbw"><div class="sbb" id="b4" style="background:#f59e0b;"></div></div><div class="sba">18€</div></div>
+      </div>
+    </div>
+
+    <!-- S7: Reports -->
+    <div class="scene" id="s7">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="page-title">📊 Informes</div>
+        <div style="display:flex;gap:7px;">
+          <div style="padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;background:#fff;border:1px solid var(--line);color:var(--muted);">7 días</div>
+          <div style="padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;background:var(--navy);color:#fff;">30 días</div>
+        </div>
+      </div>
+      <div class="repgrid">
+        <div>
+          <div class="rc" style="margin-bottom:12px;">
+            <div class="rct">Ingresos · últimos 30 días</div>
+            <svg viewBox="0 0 400 140" style="width:100%;height:140px;" id="rsvg">
+              <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7c3aed" stop-opacity=".28"/><stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/></linearGradient></defs>
+            </svg>
+          </div>
+          <div class="rc">
+            <div class="rct">Servicios más solicitados</div>
+            <div class="bch">
+              <div class="bcr"><div class="bcl">Tinte completo</div><div class="bcw"><div class="bcb" id="bc1" style="background:#3b82f6;"></div></div><div class="bcp">38%</div></div>
+              <div class="bcr"><div class="bcl">Corte y peinado</div><div class="bcw"><div class="bcb" id="bc2" style="background:#ec4899;"></div></div><div class="bcp">29%</div></div>
+              <div class="bcr"><div class="bcl">Mechas</div><div class="bcw"><div class="bcb" id="bc3" style="background:#10b981;"></div></div><div class="bcp">21%</div></div>
+              <div class="bcr"><div class="bcl">Manicura</div><div class="bcw"><div class="bcb" id="bc4" style="background:#f59e0b;"></div></div><div class="bcp">12%</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="metr">
+          <div class="mc"><div class="mv" id="mrv">0<span>€</span></div><div class="ml">Ingresos (30 días)</div><div class="mtr">↑ +18% vs mes anterior</div></div>
+          <div class="mc"><div class="mv" id="mac">0</div><div class="ml">Citas completadas</div><div class="mtr">↑ +12% vs mes anterior</div></div>
+          <div class="mc"><div class="mv">34<span>€</span></div><div class="ml">Ticket medio</div><div class="mtr">↑ +5% vs mes anterior</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S8: End -->
+    <div class="scene" id="s8">
+      <div class="endsc">
+        <div class="el" id="el">✂ GestiCitas</div>
+        <div class="et" id="et">Tu peluquería, siempre bajo control</div>
+        <div class="eu" id="eu">gesticitas.es</div>
+        <div class="etrial" id="etr">🎁 Prueba gratuita 7 días · Sin compromiso</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const TOTAL = 42000;
+const SCENES = [
+  {id:'s1',nav:'inicio',   t0:0,     t1:6500},
+  {id:'s2',nav:'calendario',t0:6500,  t1:13000},
+  {id:'s3',nav:'calendario',t0:13000, t1:21000},
+  {id:'s4',nav:'clientes', t0:21000, t1:27000},
+  {id:'s5',nav:'calendario',t0:27000, t1:30500},
+  {id:'s6',nav:'tickets',  t0:30500, t1:34500},
+  {id:'s7',nav:'informes', t0:34500, t1:37000},
+  {id:'s8',nav:null,       t0:37000, t1:42000},
+];
+const CAPS = [
+  {t:0,    txt:'Tu día de un vistazo',                   sub:'Dashboard · Inicio'},
+  {t:6500, txt:'Toda la agenda organizada por profesional',sub:'Calendario · Vista diaria'},
+  {t:13000,txt:'Nueva cita creada en segundos',           sub:'Calendario · Nueva cita'},
+  {t:21000,txt:'Historial completo de cada cliente',      sub:'Clientes'},
+  {t:27000,txt:'Recordatorio automático por WhatsApp',    sub:'Avisos automáticos'},
+  {t:30500,txt:'Cierre de caja sin calculadora',          sub:'Tickets del día'},
+  {t:34500,txt:'Informes claros para tomar mejores decisiones', sub:'Informes · 30 días'},
+  {t:37000,txt:'Prueba gratuita 7 días · Sin compromiso', sub:''},
+];
+
+const t0 = performance.now();
+let curScene = null, curCap = -1;
+
+function at(ms, fn){ setTimeout(fn, ms); }
+
+function animN(el, from, to, dur, suf=''){
+  const s = performance.now();
+  const r = to - from;
+  function step(){
+    const p = Math.min((performance.now()-s)/dur, 1);
+    const e = 1 - Math.pow(1-p, 3);
+    el.textContent = Math.round(from + r*e) + suf;
+    if(p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function typeIn(el, txt, delay=85){
+  return new Promise(resolve => {
+    let i=0; el.value='';
+    const iv = setInterval(()=>{
+      el.value += txt[i++];
+      if(i>=txt.length){ clearInterval(iv); resolve(); }
+    }, delay);
+  });
+}
+
+function loop(){
+  const now = performance.now() - t0;
+  document.getElementById('pb').style.width = (Math.min(now/TOTAL,1)*100)+'%';
+
+  for(const s of SCENES){
+    if(now>=s.t0 && now<s.t1){
+      if(curScene!==s.id){
+        document.querySelectorAll('.scene').forEach(e=>e.classList.remove('on'));
+        document.getElementById(s.id).classList.add('on');
+        curScene=s.id;
+        document.querySelectorAll('.ni').forEach(n=>n.classList.toggle('on', n.dataset.n===s.nav));
+      }
+      break;
+    }
+  }
+  for(let i=CAPS.length-1;i>=0;i--){
+    if(now>=CAPS[i].t){
+      if(curCap!==i){
+        curCap=i;
+        const c=CAPS[i];
+        document.getElementById('cap').innerHTML = c.txt + (c.sub?`<small>· ${c.sub}</small>`:'');
+      }
+      break;
+    }
+  }
+  if(now<TOTAL) requestAnimationFrame(loop);
+}
+
+/* ── S1 dashboard ── */
+at(600, ()=>{ animN(document.getElementById('nc'),0,8,700); animN(document.getElementById('np'),0,3,700); animN(document.getElementById('nv'),0,373,1000,'€'); });
+at(1400, ()=>document.getElementById('a1').classList.add('on'));
+at(1900, ()=>document.getElementById('a2').classList.add('on'));
+at(2400, ()=>document.getElementById('a3').classList.add('on'));
+at(2900, ()=>document.getElementById('a4').classList.add('on'));
+at(3400, ()=>document.getElementById('a5').classList.add('on'));
+
+/* ── S2 calendar ── */
+at(6700, buildCal);
+
+/* ── S3 new appt ── */
+at(13200, ()=>document.getElementById('mov').classList.add('on'));
+at(14200, ()=>{
+  const el=document.getElementById('fci'); el.classList.add('foc');
+  typeIn(el,'Isab',90).then(()=>{ at(350,()=>document.getElementById('fac').classList.add('on')); });
+});
+at(16500, ()=>{ document.getElementById('fac').classList.remove('on'); document.getElementById('fci').value='Isabel Cano'; document.getElementById('fci').classList.remove('foc'); });
+at(18200, ()=>{ const b=document.getElementById('sbtn'); b.textContent='Guardando…'; b.classList.add('ld'); });
+at(19500, ()=>{ const b=document.getElementById('sbtn'); b.textContent='✓ Cita creada'; b.classList.remove('ld'); b.classList.add('ok'); });
+at(20500, ()=>document.getElementById('mov').classList.remove('on'));
+
+/* ── S4 clients ── */
+at(21200, ()=>{ ['cr1','cr2','crh','cr3','cr4','cr5'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('on'),i*150)); });
+at(22000, ()=>{ const el=document.getElementById('sci'); el.classList.add('foc'); typeIn(el,'Isabel',100); });
+at(23500, ()=>document.getElementById('cdet').classList.add('on'));
+
+/* ── S5 whatsapp ── */
+at(27500, ()=>document.getElementById('wat').classList.add('on'));
+
+/* ── S6 cash ── */
+at(30800, ()=>{ animN(document.getElementById('ca'),0,373,1200,'€'); animN(document.getElementById('ct'),0,8,800); });
+at(31800, ()=>{ document.getElementById('b1').style.width='100%'; setTimeout(()=>document.getElementById('b2').style.width='44%',200); setTimeout(()=>document.getElementById('b3').style.width='38%',400); setTimeout(()=>document.getElementById('b4').style.width='9%',600); });
+
+/* ── S7 reports ── */
+at(34700, ()=>{ drawChart(); animN(document.getElementById('mrv'),0,2890,1400); animN(document.getElementById('mac'),0,84,1100); });
+at(35500, ()=>{ ['bc1','bc2','bc3','bc4'].forEach((id,i)=>setTimeout(()=>{ document.getElementById(id).style.width=['100%','76%','55%','32%'][i]; },i*200)); });
+
+/* ── S8 end ── */
+at(37200, ()=>{ document.getElementById('el').classList.add('on'); at(400,()=>document.getElementById('et').classList.add('on')); at(800,()=>document.getElementById('eu').classList.add('on')); at(1200,()=>document.getElementById('etr').classList.add('on')); });
+
+/* ── Build calendar ── */
+function buildCal(){
+  const grid = document.getElementById('cbody');
+  const times = ['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30'];
+  const timecol = document.createElement('div');
+  timecol.className='caltimecol';
+  times.forEach(t=>{const s=document.createElement('div');s.className='cts';s.textContent=t;timecol.appendChild(s);});
+  grid.appendChild(timecol);
+
+  const appts=[
+    [{slot:0,span:1,n:'Ana García',c:'Corte · 45min',cl:'c1'},{slot:4,span:2,n:'Sofía Martín',c:'Corte y peinado',cl:'c1'},{slot:12,span:1,n:'Rosa Pérez',c:'Corte · 45min',cl:'c1'},{slot:18,span:1,n:'Isabel Cano ✨',c:'Corte · 18:00',cl:'c1'}],
+    [{slot:1,span:3,n:'Carmen López',c:'Tinte · 90min',cl:'c2'},{slot:6,span:4,n:'Sofía Martín',c:'Mechas · 2h',cl:'c2'},{slot:14,span:3,n:'María José',c:'Tinte · 90min',cl:'c2'}],
+    [{slot:6,span:1,n:'Beatriz F.',c:'Manicura',cl:'c3'},{slot:10,span:2,n:'Elena Castro',c:'Peinado',cl:'c3'},{slot:16,span:2,n:'Carmen L.',c:'Corte y peinado',cl:'c3'}],
+  ];
+  appts.forEach((col,ci)=>{
+    const d=document.createElement('div');
+    d.className='caldaycol';
+    d.style.borderLeft='1px solid var(--line)';
+    times.forEach(()=>{const c=document.createElement('div');c.className='cdc';d.appendChild(c);});
+    col.forEach((a,ai)=>{
+      const b=document.createElement('div');
+      b.className=`capt ${a.cl}`;
+      b.innerHTML=`<div class="cn">${a.n}</div><div class="ct">${a.c}</div>`;
+      b.style.top=(a.slot*46+2)+'px';
+      b.style.height=(a.span*46-4)+'px';
+      d.appendChild(b);
+      setTimeout(()=>b.classList.add('on'),400+ai*320+ci*180);
+    });
+    grid.appendChild(d);
+  });
+}
+
+/* ── Draw revenue chart ── */
+function drawChart(){
+  const svg=document.getElementById('rsvg');
+  const W=400,H=140,p={t:8,r:8,b:22,l:36};
+  const data=[82,105,92,128,112,142,118,158,138,172,128,152,168,142,178,162,192,172,208,182,218,192,228,212,242,218,258,232,268,278];
+  const gW=W-p.l-p.r, gH=H-p.t-p.b;
+  const mx=Math.max(...data);
+  const x=i=>p.l+(i/(data.length-1))*gW;
+  const y=v=>p.t+gH-(v/mx)*gH;
+  let area=`M ${x(0)} ${y(data[0])}`;
+  data.forEach((v,i)=>{if(i>0)area+=` L ${x(i)} ${y(v)}`;});
+  area+=` L ${x(data.length-1)} ${H-p.b} L ${x(0)} ${H-p.b} Z`;
+  let line=`M ${x(0)} ${y(data[0])}`;
+  data.forEach((v,i)=>{if(i>0)line+=` L ${x(i)} ${y(v)}`;});
+  svg.innerHTML=`
+    <defs><linearGradient id="rg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7c3aed" stop-opacity=".28"/><stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/></linearGradient></defs>
+    <path d="${area}" fill="url(#rg2)"/>
+    <path d="${line}" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${x(29)}" cy="${y(data[29])}" r="5" fill="#7c3aed"/>
+    <text x="${x(29)+8}" y="${y(data[29])-5}" fill="#7c3aed" font-size="10" font-weight="700">2.890€</text>
+  `;
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
